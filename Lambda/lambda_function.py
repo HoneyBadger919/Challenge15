@@ -111,26 +111,34 @@ In this section, you will create an Amazon Lambda function that will validate th
 
 """
 
-def validate_date(age, investment_amount, intent_request):
+def validate_data(age, investment_amount, intent_request):
     
-    if age < 21:
-        return build_validation_result(
-            False,
-            'Age',
-            'You must be at least 21 years old to use this service.'
-        )
-    elif age > 65:
-        return build_validation_result(
-            False,
-            'Age',
-            'You must not be older than 65 years old to use this service.'
-        )
-    if investment_amount < 5000:
-        return build_validation_result(
-            False,
-            'Investment_amount',
-            'You have to invest at least 5000 dollars to use this service.'
-        )
+    if age is not None:
+        age = parse_int(age)
+      
+        
+        if age < 0:
+            return build_validation_result(
+                False,
+                'age',
+                'Your age must be non negative.'
+            )
+        elif age > 65:
+            return build_validation_result(
+                False,
+                'age',
+                'You must not be older than 65 years old to use this service.'
+            )
+    if investment_amount is not None:
+        investment_amount = parse_int(investment_amount)
+        
+        
+        if investment_amount < 5000:
+            return build_validation_result(
+                False,
+                'investmentAmount',
+                'You have to invest at least 5000 dollars to use this service.'
+            )
             
     return build_validation_result(True,None,None)
 
@@ -147,10 +155,54 @@ def recommend_portfolio(intent_request):
     source = intent_request["invocationSource"]
 
     # YOUR CODE GOES HERE!
-    validation = validate_date(age, investment_amount, intent_request)
+    if source == "DialogCodeHook":
+        slots = get_slots(intent_request)
+        validation = validate_data(age, investment_amount, intent_request)
     
-    if validation['isValid'] == True:
+    
+        # * **none:** "100% bonds (AGG), 0% equities (SPY)"
+        # * **low:** "60% bonds (AGG), 40% equities (SPY)"
+        # * **medium:** "40% bonds (AGG), 60% equities (SPY)"
+        # * **high:** "20% bonds (AGG), 80% equities (SPY)"
+        if not validation["isValid"]:
+            slots[validation["violatedSlot"]] = None  # Cleans invalid slot
+            
+            return elicit_slot(
+                intent_request["sessionAttributes"],
+                intent_request["currentIntent"]["name"],
+                slots,
+                validation_result["violatedSlot"],
+                validation_result["message"],
+            )
         
+        output_session_attributes = intent_request["sessionAttributes"]
+        return delegate(output_session_attributes, get_slots(intent_request))
+        
+    # get recommendation
+    if risk_level.lower() == 'none':
+        recommendation = "100% bonds (AGG), 0% equities (SPY)"
+
+    elif risk_level.lower() == 'low':
+        recommendation = "60% bonds (AGG), 40% equities (SPY)"
+
+    elif risk_level.lower() == 'medium':
+        recommendation = "40% bonds (AGG), 60% equities (SPY)"
+
+    elif risk_level.lower() == 'high':
+        recommendation = "20% bonds (AGG), 80% equities (SPY)"
+                
+    return close(
+                intent_request["sessionAttributes"],
+                "Fulfilled",
+                {
+                    "contentType": "PlainText",
+                    "content": """{} thank you for your information;
+                    based on the risk level you defined, my recommendation is to choose an investment portfolio with {}
+                    """.format(
+                        first_name, recommendation
+            ),
+        },
+    )
 
 ### Intents Dispatcher ###
 def dispatch(intent_request):
