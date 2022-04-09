@@ -171,8 +171,8 @@ def recommend_portfolio(intent_request):
                 intent_request["sessionAttributes"],
                 intent_request["currentIntent"]["name"],
                 slots,
-                validation_result["violatedSlot"],
-                validation_result["message"],
+                validation["violatedSlot"],
+                validation["message"],
             )
         
         output_session_attributes = intent_request["sessionAttributes"]
